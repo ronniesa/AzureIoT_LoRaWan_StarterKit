@@ -203,6 +203,11 @@ namespace LoRaWan.NetworkServer
                             if (bytesC2dMsg != null)
                                 Console.WriteLine($"C2D message: {Encoding.UTF8.GetString(bytesC2dMsg)}");
 
+                            //todo ronnie implement a better max payload size by datarate
+                            //cut to the max payload of lora for any datarate
+                            if(bytesC2dMsg.Length>51)
+                                Array.Resize(ref bytesC2dMsg, 51);
+
                             Array.Reverse(bytesC2dMsg);
                         }
 
@@ -237,6 +242,7 @@ namespace LoRaWan.NetworkServer
                                 //if we are already longer than 900 mssecond move to the 2 second window
                                 if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
                                 {
+                                    //using EU fix DR for RX2
                                     _freq = 869.525;
                                     _datr = "SF12BW125";
 
