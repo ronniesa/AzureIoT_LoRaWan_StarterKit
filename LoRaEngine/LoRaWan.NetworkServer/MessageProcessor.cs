@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -230,11 +231,18 @@ namespace LoRaWan.NetworkServer
 
                                 uint txDelay = 0;
 
+                               
 
-                                //todo ronnie need to use fixed freq for 2 window and check also for US and other freq
+                                //todo ronnie & mik check for US and other freq from env variable?
                                 //if we are already longer than 900 mssecond move to the 2 second window
-                                //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
-                                //    txDelay = 1000000;
+                                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
+                                {
+                                    _freq = 869.525;
+                                    _datr = "SF12BW125";
+
+                                    txDelay = 1000000;
+                                }
+
 
                                 long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + txDelay;
 
