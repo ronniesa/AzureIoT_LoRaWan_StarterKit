@@ -236,15 +236,29 @@ namespace LoRaWan.NetworkServer
 
                                 uint txDelay = 0;
 
-                               
-
-                                //todo ronnie & mik check for US and other freq from env variable?
+                           
+                              //todo ronnie & mik check for US and other freq from env variable?
                                 //if we are already longer than 900 mssecond move to the 2 second window
-                                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
+                                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900) )
                                 {
-                                    //using EU fix DR for RX2
-                                    _freq = 869.525;
-                                    _datr = "SF12BW125";
+                                    if (loraDeviceInfo.Rx2_datr == null)
+                                    {
+                                        Console.WriteLine("using standard second receive windows");
+
+                                        //using EU fix DR for RX2
+                                        _freq = 869.525;
+                                        _datr = "SF12BW125";
+
+
+                                    }
+                                    //if specific twins are set, specify second channel to be as specified
+                                    else
+                                    {
+                                        Console.WriteLine("using specific second receive windows freq : {0}, datr:{1}", loraDeviceInfo.Rx2_freq, loraDeviceInfo.Rx2_datr);
+                                        _freq = loraDeviceInfo.Rx2_freq;
+                                        _datr = loraDeviceInfo.Rx2_datr;
+
+                                    }
 
                                     txDelay = 1000000;
                                 }
@@ -405,7 +419,7 @@ namespace LoRaWan.NetworkServer
 
                 byte[] netId = StringToByteArray(joinLoraDeviceInfo.NetId);
 
-               
+
 
                 byte[] devAddr = StringToByteArray(joinLoraDeviceInfo.DevAddr);
 
@@ -431,6 +445,22 @@ namespace LoRaWan.NetworkServer
                 double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
 
                 long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst;
+
+
+                //in this case it's too late, we need to break
+                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(6000))
+                {
+                    Console.WriteLine("Processing of the join request took too long, sending no message");
+                    return null;
+                }
+                //in this case the second join windows must be used
+                else if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(4500))
+                {
+                    Console.WriteLine("Processing of the join request took too long, using second join accept receive windows");
+                    _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + 5000000;
+
+                   
+                }
 
                 LoRaMessage joinAcceptMessage = new LoRaMessage(loRaPayloadJoinAccept, LoRaMessageType.JoinAccept, loraMessage.physicalPayload.token, _datr, 0, _freq, _tmst);
 
