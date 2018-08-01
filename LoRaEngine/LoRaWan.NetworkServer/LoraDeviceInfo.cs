@@ -17,8 +17,7 @@ namespace LoRaWan.NetworkServer
         public string AppNonce;
         public string DevNonce;
         public string NetId;
-        public string Rx2_datr;
-        public long Rx2_freq;
+  
         public bool IsOurDevice = false;
         public bool IsJoinValid = false;
         public IoTHubSender HubSender;
