@@ -65,13 +65,16 @@ namespace LoRaWan.NetworkServer
                     //we set the retry only when sending msgs                    
                     deviceClient.SetRetryPolicy(new NoRetry());
 
+                    deviceClient.SetDesiredPropertyUpdateCallbackAsync(OnPropertyUpdateRequestedCallback, deviceClient);
+
                     //if the server disconnects dispose the deviceclient and new one will be created when a new d2c msg comes in.
                     deviceClient.SetConnectionStatusChangesHandler((status, reason) =>
                     {
                         if (status == ConnectionStatus.Disconnected)
                         {
-                            deviceClient.Dispose();
-                            deviceClient = null;
+                            //todo ronnie does it make sense to kill everything for multigateway?
+                            //deviceClient.Dispose();
+                            //deviceClient = null;
                             Logger.Log(DevEUI, $"connection closed by the server",Logger.LoggingLevel.Info);
                         }
                     });
@@ -82,6 +85,22 @@ namespace LoRaWan.NetworkServer
                 }
 
             }
+        }
+
+        public Task OnPropertyUpdateRequestedCallback(TwinCollection desiredProperties, object userContext)
+        {
+            
+            if (desiredProperties != null && desiredProperties.Count > 0)
+            {
+                //todo ronnie it would probably make more sense to update the properties of the class than to remove it from the cache
+                if (desiredProperties["DevAddr"]!=null)
+                {
+                    Cache.RemoveFromCache(desiredProperties["DevAddr"]);
+                    Logger.Log(DevEUI, $"desired property changed, removed from cache with DevAddr:{desiredProperties["DevAddr"]}", Logger.LoggingLevel.Info);
+                }
+            }
+
+            return null;
         }
 
         public async Task SendMessageAsync(string strMessage)
@@ -129,9 +148,14 @@ namespace LoRaWan.NetworkServer
                         prop = new TwinCollection($"{{\"FCntUp\":{FCntUp}}}");
                     }
 
+
+                    //Enable retry for twins update                 
+                    deviceClient.SetRetryPolicy(new ExponentialBackoff(int.MaxValue, TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(10), TimeSpan.FromMilliseconds(100)));
                     await deviceClient.UpdateReportedPropertiesAsync(prop);
+                    deviceClient.SetRetryPolicy(new NoRetry());
 
                     Logger.Log(DevEUI, $"twins updated {FCntUp}:{FCntDown}", Logger.LoggingLevel.Info);
+
                 }
 
             }
@@ -189,6 +213,8 @@ namespace LoRaWan.NetworkServer
 
         private string createIoTHubConnectionString()
         {
+
+         
 
             bool enableGateway = true;
             string connectionString = string.Empty;

@@ -170,10 +170,7 @@ namespace LoRaWan.NetworkServer
             try
             {
                
-                
-
-
-
+               
                 if (desiredProperties["FacadeServerUrl"] != null)
                     LoraDeviceInfoManager.FacadeServerUrl = desiredProperties["FacadeServerUrl"];
 

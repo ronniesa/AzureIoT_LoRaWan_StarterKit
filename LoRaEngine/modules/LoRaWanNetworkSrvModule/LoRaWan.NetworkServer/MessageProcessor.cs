@@ -179,7 +179,11 @@ namespace LoRaWan.NetworkServer
                             else
                             {
                                 Logger.Log(loraDeviceInfo.DevEUI, $"decoding with: {loraDeviceInfo.SensorDecoder} port: {fportUp}", Logger.LoggingLevel.Info);
-                                jsonDataPayload = LoraDecoders.DecodeMessage(decryptedMessage, fportUp, loraDeviceInfo.SensorDecoder);                               
+                                jsonDataPayload = LoraDecoders.DecodeMessage(decryptedMessage, fportUp, loraDeviceInfo.SensorDecoder);
+                                //todo ronnie remove iot central test
+                                DeviceClient deviceClient = DeviceClient.CreateFromConnectionString("HostName=saas-iothub-f336c986-ee67-40b3-966d-b699f29f705b.azure-devices.net;DeviceId=yocbp3;SharedAccessKey=Pip3+Y9xd3+qe0amweGIVZeC+O+biRmlQV6up6ipBe4=");
+                                _= deviceClient.SendEventAsync(new Message(UTF8Encoding.ASCII.GetBytes(jsonDataPayload)));
+
                                 fullPayload.data = JObject.Parse(jsonDataPayload);
                             }
 
@@ -418,6 +422,7 @@ namespace LoRaWan.NetworkServer
 
             Logger.Log(devEui, $"join request received", Logger.LoggingLevel.Info);
 
+            //todo ronnie currently we have disabled caching of refused join request to allow data entry to complete
             //checking if this devnonce was already processed or the deveui was already refused
             Cache.TryGetValue(devEui, out joinLoraDeviceInfo);
 
@@ -489,7 +494,7 @@ namespace LoRaWan.NetworkServer
 
                 double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
                 //set tmst for the normal case
-                long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst+ 5000000;
+                long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + 5000000;
 
                 //uncomment to force second windows usage
                 //Thread.Sleep(4600-(int)(DateTime.Now - startTimeProcessing).TotalMilliseconds);
@@ -498,7 +503,7 @@ namespace LoRaWan.NetworkServer
                 {
                     Logger.Log(devEui, $"processing of the join request took too long, sending no message", Logger.LoggingLevel.Info);
                     var physicalResponse = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PULL_RESP, null);
-                    
+
                     return physicalResponse.GetMessage();
                 }
                 //in this case the second join windows must be used
@@ -524,10 +529,10 @@ namespace LoRaWan.NetworkServer
                         _freq = double.Parse(Environment.GetEnvironmentVariable("RX2_FREQ"));
                         _datr = Environment.GetEnvironmentVariable("RX2_DATR");
                     }
-                  
-         
+
+
                 }
-              
+
 
                 LoRaMessage joinAcceptMessage = new LoRaMessage(loRaPayloadJoinAccept, LoRaMessageType.JoinAccept, loraMessage.physicalPayload.token, _datr, 0, _freq, _tmst);
 
@@ -543,7 +548,7 @@ namespace LoRaWan.NetworkServer
                 joinLoraDeviceInfo.FCntUp = 0;
                 joinLoraDeviceInfo.FCntDown = 0;
 
-                
+
                 //update the frame counter on the server
                 _ = joinLoraDeviceInfo.HubSender.UpdateFcntAsync(joinLoraDeviceInfo.FCntUp, joinLoraDeviceInfo.FCntDown);
 
@@ -553,11 +558,16 @@ namespace LoRaWan.NetworkServer
                 Cache.AddToCache(joinLoraDeviceInfo.DevAddr, joinLoraDeviceInfo);
 
                 Logger.Log(devEui, $"join accept sent", Logger.LoggingLevel.Info);
-                  
-             }
 
+            }
+            else
+            {
+                Logger.Log(devEui, $"join request refused the device is not ours", Logger.LoggingLevel.Info);
+            }
+
+            //todo ronnie to check if we want to cache to protect the server or not, without cache is easier to manage the case whre the twins are not entered yet
             //add to cache to avoid replay attack, btw server side does the check too.
-            Cache.AddToCache(devEui, joinLoraDeviceInfo);
+            //Cache.AddToCache(devEui, joinLoraDeviceInfo);
 
             return udpMsgForPktForwarder;
         }

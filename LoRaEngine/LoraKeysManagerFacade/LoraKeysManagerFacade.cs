@@ -91,7 +91,7 @@ namespace LoraKeysManagerFacade
             //TODO check for sql injection
             devAddr =devAddr.Replace('\'',' ');
 
-            var query = registryManager.CreateQuery($"SELECT * FROM devices WHERE tags.DevAddr = '{devAddr}'", 1);
+            var query = registryManager.CreateQuery($"SELECT * FROM devices WHERE properties.desired.DevAddr = '{devAddr}'", 1);
 
             LoraDeviceInfo loraDeviceInfo = new LoraDeviceInfo();
             loraDeviceInfo.DevAddr = devAddr;
@@ -106,15 +106,15 @@ namespace LoraKeysManagerFacade
                 {
                     loraDeviceInfo.DevEUI = twin.DeviceId;
                     if(returnAppSKey)
-                        loraDeviceInfo.AppSKey = twin.Tags["AppSKey"].Value;
-                    loraDeviceInfo.NwkSKey = twin.Tags["NwkSKey"].Value;
-                    if (twin.Tags.Contains("GatewayID"))
-                        loraDeviceInfo.GatewayID = twin.Tags["GatewayID"].Value;
-                    if (twin.Tags.Contains("SensorDecoder"))
-                        loraDeviceInfo.SensorDecoder = twin.Tags["SensorDecoder"].Value;
+                        loraDeviceInfo.AppSKey = twin.Properties.Desired["AppSKey"].Value;
+                    loraDeviceInfo.NwkSKey = twin.Properties.Desired["NwkSKey"].Value;
+                    if (twin.Properties.Desired.Contains("GatewayID"))
+                        loraDeviceInfo.GatewayID = twin.Properties.Desired["GatewayID"].Value;
+                    if (twin.Properties.Desired.Contains("SensorDecoder"))
+                        loraDeviceInfo.SensorDecoder = twin.Properties.Desired["SensorDecoder"].Value;
 
-                    if (twin.Tags.Contains("AppEUI"))
-                        loraDeviceInfo.AppEUI = twin.Tags["AppEUI"].Value;
+                    if (twin.Properties.Desired.Contains("AppEUI"))
+                        loraDeviceInfo.AppEUI = twin.Properties.Desired["AppEUI"].Value;
                     loraDeviceInfo.IsOurDevice = true;
                     if (twin.Properties.Reported.Contains("FCntUp"))
                         loraDeviceInfo.FCntUp = twin.Properties.Reported["FCntUp"];
@@ -219,7 +219,7 @@ namespace LoraKeysManagerFacade
                     loraDeviceInfo.IsOurDevice = true;
 
                     //Make sure that there is the AppEUI and it matches if not we cannot do the OTAA
-                    if (!twin.Tags.Contains("AppEUI"))
+                    if (!twin.Properties.Desired.Contains("AppEUI"))
                     {
                         string errorMsg = $"Missing AppEUI for OTAA for device {devEUI}";
                         //log.Error(errorMsg);
@@ -227,7 +227,7 @@ namespace LoraKeysManagerFacade
                     }
                     else
                     {
-                        if (twin.Tags["AppEUI"].Value != appEUI)
+                        if (twin.Properties.Desired["AppEUI"].Value != appEUI)
                         {
                             string errorMsg = $"AppEUI for OTAA does not match for device {devEUI}";
                             //log.Error(errorMsg);
@@ -236,7 +236,7 @@ namespace LoraKeysManagerFacade
                     }
 
                     //Make sure that there is the AppKey if not we cannot do the OTAA
-                    if (!twin.Tags.Contains("AppKey"))
+                    if (!twin.Properties.Desired.Contains("AppKey"))
                     {
                         string errorMsg = $"Missing AppKey for OTAA for device {devEUI}";
                         //log.Error(errorMsg);
@@ -244,13 +244,13 @@ namespace LoraKeysManagerFacade
                     }
                     else
                     {
-                        AppKey = twin.Tags["AppKey"].Value;
+                        AppKey = twin.Properties.Desired["AppKey"].Value;
                     }
 
                     //Make sure that is a new request and not a replay
-                    if (twin.Tags.Contains("DevNonce"))
+                    if (twin.Properties.Desired.Contains("DevNonce"))
                     {
-                        if (twin.Tags["DevNonce"] == DevNonce)
+                        if (twin.Properties.Desired["DevNonce"] == DevNonce)
                         {
                             string errorMsg = $"DevNonce already used for device {devEUI}";
                             log.Info(errorMsg);
@@ -263,17 +263,17 @@ namespace LoraKeysManagerFacade
                     }
 
                     //Check that the device is joining throught the linked gateway and not another
-                    if (twin.Tags.Contains("GatewayID"))
+                    if (twin.Properties.Desired.Contains("GatewayID"))
                     {
                        
 
-                        if (!String.IsNullOrEmpty(twin.Tags["GatewayID"].Value) && twin.Tags["GatewayID"].Value.ToUpper() != GatewayID.ToUpper())
+                        if (!String.IsNullOrEmpty(twin.Properties.Desired["GatewayID"].Value) && twin.Properties.Desired["GatewayID"].Value.ToUpper() != GatewayID.ToUpper())
                         {
-                            string errorMsg = $"Not the right gateway device-gateway:{twin.Tags["GatewayID"].Value} current-gateway:{GatewayID}";
+                            string errorMsg = $"Not the right gateway device-gateway:{twin.Properties.Desired["GatewayID"].Value} current-gateway:{GatewayID}";
                             log.Info(errorMsg);
                             loraDeviceInfo.DevAddr = DevNonce;
-                            if (twin.Tags.Contains("GatewayID"))
-                                loraDeviceInfo.GatewayID = twin.Tags["GatewayID"].Value;
+                            if (twin.Properties.Desired.Contains("GatewayID"))
+                                loraDeviceInfo.GatewayID = twin.Properties.Desired["GatewayID"].Value;
                             loraDeviceInfo.IsJoinValid = false;
                             json = JsonConvert.SerializeObject(loraDeviceInfo);
                             return (ActionResult)new OkObjectResult(json);
@@ -300,7 +300,7 @@ namespace LoraKeysManagerFacade
 
                       
 
-                        var query = registryManager.CreateQuery($"SELECT * FROM devices WHERE tags.DevAddr = '{DevAddr}'", 1);
+                        var query = registryManager.CreateQuery($"SELECT * FROM devices WHERE properties.desired.DevAddr = '{DevAddr}'", 1);
                         if (query.HasMoreResults)
                         {
                             var page = await query.GetNextAsTwinAsync();
@@ -320,20 +320,23 @@ namespace LoraKeysManagerFacade
 
                     var patch = new
                     {
-                        tags = new
+                        properties = new
                         {
-                            AppSKey,
-                            NwkSKey,
-                            DevAddr,
-                            DevNonce
-
-                        }
+                            desired = new
+                            {
+                                AppSKey,
+                                NwkSKey,
+                                DevAddr,
+                                DevNonce
+                            }
+                        }                       
+                                                
                     };
 
                     await registryManager.UpdateTwinAsync(loraDeviceInfo.DevEUI, JsonConvert.SerializeObject(patch), twin.ETag);
 
                     loraDeviceInfo.DevAddr = DevAddr;
-                    loraDeviceInfo.AppKey = twin.Tags["AppKey"].Value;
+                    loraDeviceInfo.AppKey = twin.Properties.Desired["AppKey"].Value;
                     loraDeviceInfo.NwkSKey = NwkSKey;
                     loraDeviceInfo.AppSKey = AppSKey;
                     loraDeviceInfo.AppNonce = AppNonce;
@@ -349,10 +352,10 @@ namespace LoraKeysManagerFacade
                     var device = await registryManager.GetDeviceAsync(loraDeviceInfo.DevEUI);
                     loraDeviceInfo.PrimaryKey = device.Authentication.SymmetricKey.PrimaryKey;
 
-                    if (twin.Tags.Contains("GatewayID"))
-                        loraDeviceInfo.GatewayID = twin.Tags["GatewayID"].Value;
-                    if (twin.Tags.Contains("SensorDecoder"))
-                        loraDeviceInfo.SensorDecoder = twin.Tags["SensorDecoder"].Value;
+                    if (twin.Properties.Desired.Contains("GatewayID"))
+                        loraDeviceInfo.GatewayID = twin.Properties.Desired["GatewayID"].Value;
+                    if (twin.Properties.Desired.Contains("SensorDecoder"))
+                        loraDeviceInfo.SensorDecoder = twin.Properties.Desired["SensorDecoder"].Value;
 
 
             }

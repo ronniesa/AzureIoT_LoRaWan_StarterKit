@@ -30,6 +30,12 @@ namespace LoRaWan.NetworkServer
             }
         }
 
+        public static void RemoveFromCache(string devAddr)
+        {
+            Cache.MemoryCache.Remove(devAddr);            
+        }
+
+
         public static void TryGetValue(string key, out LoraDeviceInfo loraDeviceInfo)
         {
             Cache.MemoryCache.TryGetValue(key, out object loraDeviceInfoCache);
